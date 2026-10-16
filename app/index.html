@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full w-full">
+<head>
+<meta name="theme-color" content="#050505">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="idkvideos">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- YouTube Embed Strict Referrer Policy Fix -->
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>idkvideos</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- YouTube IFrame Player API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #000000;
+      transition: background-color 0.4s ease, opacity 0.3s ease;
+      overscroll-behavior: none;
+    }
+
+    /* Floating Video Card Shadow & Aesthetic Depth */
+    .video-card-container {
+      box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.98), 
+                  0 0 0 1px rgba(255, 255, 255, 0.1),
+                  0 0 50px rgba(255, 255, 255, 0.02);
+    }
+
+    .iframe-crop-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 26px;
+      background-color: #050505;
+    }
+
+    #youtube-player {
+      position: absolute;
+      /* Inset positioning & scale crops out top video title & bottom control overlays */
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      pointer-events: auto;
+      object-fit: cover;
+    }
+
+    /* Smooth Vertical Slide Animation Keyframes */
+    .slide-out-up {
+      animation: slideOutUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide-in-up {
+      animation: slideInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide-out-down {
+      animation: slideOutDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide-in-down {
+      animation: slideInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes slideOutUp {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-110%) scale(0.85); opacity: 0; }
+    }
+    @keyframes slideInUp {
+      0% { transform: translateY(110%) scale(0.85); opacity: 0; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    @keyframes slideOutDown {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(110%) scale(0.85); opacity: 0; }
+    }
+    @keyframes slideInDown {
+      0% { transform: translateY(-110%) scale(0.85); opacity: 0; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* Interactive Like / Dislike Floating Animation */
+    @keyframes floatUpFade {
+      0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+      30% { transform: translate(-50%, -80%) scale(1.3); opacity: 1; }
+      100% { transform: translate(-50%, -150%) scale(0.8); opacity: 0; }
+    }
+
+    @keyframes floatDownFade {
+      0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+      30% { transform: translate(-50%, -20%) scale(1.3); opacity: 1; }
+      100% { transform: translate(-50%, 50%) scale(0.8); opacity: 0; }
+    }
+
+    .animate-float-like {
+      animation: floatUpFade 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-float-dislike {
+      animation: floatDownFade 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Custom Scrollbar and Range Styling */
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0,0,0,0.8);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+
+<body id="app-body" class="h-full w-full overflow-hidden flex flex-col items-center justify-center relative bg-black text-white select-none">
+
+  <!-- Background Dimming Overlay Layer -->
+  <div id="bg-dim-overlay" class="absolute inset-0 bg-black pointer-events-none transition-opacity duration-300 z-0" style="opacity: 0;"></div>
+
+  <!-- Toast Notification Bar -->
+  <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 transform opacity-0 -translate-y-4">
+    <div class="bg-zinc-900/90 border border-zinc-700/80 text-zinc-100 px-4 py-2 rounded-full shadow-2xl backdrop-blur-md flex items-center space-x-2 text-xs font-medium tracking-wide">
+      <span id="toast-icon">✨</span>
+      <span id="toast-message">Notification message</span>
+    </div>
+  </div>
+
+  <main class="relative z-10 flex flex-col items-center justify-center w-full h-full max-h-screen px-4 py-2">
+    
+    <!-- STANDALONE TITLE BAR (Placed ABOVE Video Container, completely separate) -->
+    <header class="w-full max-w-[360px] sm:max-w-[380px] mb-3 flex flex-col space-y-1.5 z-20">
+      
+      <!-- Top Meta Row: Category Badge, Channel Info & Volume Popover Toggle -->
+      <div class="flex items-center justify-between px-1">
+        
+        <div class="flex items-center space-x-2 overflow-hidden">
+          <span id="category-badge" aria-hidden="true" style="display:none">
+            Science
+          </span>
+          <span id="creator-badge" aria-hidden="true" style="display:none">
+            @PhysicsGirl
+          </span>
+        </div>
+
+        <!-- Interactive Volume Control Widget -->
+        <div class="relative flex items-center shrink-0">
+          <div class="flex items-center space-x-2 bg-zinc-900/90 border border-zinc-800/90 rounded-full px-2.5 py-1 text-xs shadow-md">
+            <button id="mute-toggle-btn" class="text-zinc-300 hover:text-white transition-colors focus:outline-none flex items-center" title="Toggle Mute (M)">
+              <span id="mute-icon" class="text-xs">🔊</span>
+            </button>
+            <input 
+              type="range" 
+              id="volume-slider" 
+              min="0" 
+              max="100" 
+              value="100" 
+              class="w-16 accent-white h-1 bg-zinc-700 rounded-lg cursor-pointer"
+              title="Adjust Volume">
+            <span id="volume-text" class="text-[10px] text-zinc-400 w-7 font-mono text-right">100%</span>
+            <button id="level-badge" class="ml-1 text-[9px] px-2 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-600 transition-colors font-semibold" title="Your idkvideos level">Lv 0 • Rookie</button>
+            <button id="search-toggle-btn" class="ml-0.5 text-zinc-300 hover:text-white transition-colors focus:outline-none flex items-center" title="Search YouTube Shorts (/)" aria-label="Search YouTube Shorts">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Standalone Title Line Directly Above Frame -->
+      <div class="px-1 pt-0.5">
+        <h1 id="top-video-title" class="text-sm sm:text-base font-bold text-zinc-100 tracking-tight line-clamp-1 drop-shadow">
+          Loading Short...
+        </h1>
+        <div class="hidden">
+          <span id="feed-status">Preparing your feed…</span>
+          <span id="queue-count"></span>
+        </div>
+      </div>
+
+    </header>
+
+    <!-- FLOATING VIDEO CARD WINDOW (Vertical 9:16 aspect ratio layout with Crop Mask) -->
+    <div class="relative flex items-center justify-center w-full max-w-[360px] sm:max-w-[380px] h-[64vh] max-h-[640px] min-h-[420px]">
+      
+      <div id="video-card" class="relative w-full h-full rounded-[28px] overflow-hidden video-card-container transition-transform duration-300 ease-out">
+        
+        <!-- Reaction Feedback Animation Wrapper -->
+        <div id="reaction-particle" class="absolute top-1/2 left-1/2 z-30 pointer-events-none hidden transform -translate-x-1/2 -translate-y-1/2">
+          <div id="reaction-inner" class="w-20 h-20 bg-white/95 rounded-full flex items-center justify-center shadow-2xl text-black font-bold text-3xl">
+            👍
+          </div>
+        </div>
+
+        <!-- YOUTUBE PLAYER CONTAINER -->
+        <div class="iframe-crop-wrapper">
+          <div id="youtube-player"></div>
+        </div>
+
+        <!-- Gesture layer: the YouTube iframe swallows wheel/touch events, so this catches them.
+             Bottom strip stays open so YouTube's seek/volume controls remain usable. -->
+        <div id="gesture-layer" class="absolute left-0 right-0 top-0 z-10" style="bottom:64px;touch-action:none;cursor:pointer;" aria-hidden="true"></div>
+
+        <!-- Offline or Restricted Video Fallback Card Overlay -->
+        <div id="error-fallback-card" class="absolute inset-0 bg-zinc-950/95 z-20 flex flex-col items-center justify-center p-6 text-center space-y-4 hidden">
+          <div class="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-2xl">
+            📺
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white mb-1">YouTube playback error</h3>
+            <p class="text-xs text-zinc-400 max-w-[240px]">The player reported an error. Tap below to continue.</p>
+          </div>
+          <button id="fallback-next-btn" class="px-5 py-2 rounded-full bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all cursor-pointer">
+            Next Short →
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- UNDERNEATH ACTION BUTTONS: Like, Dislike, Settings -->
+    <div class="flex items-center justify-center space-x-6 mt-5 z-20">
+      
+      <!-- Like Button (Thumbs Up) -->
+      <button 
+        id="btn-like" 
+        title="Like Short (Space / L)" 
+        aria-label="Like Short"
+        class="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center shadow-2xl shadow-black/80 hover:scale-110 active:scale-90 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-4 focus:ring-white/20">
+        <svg class="w-7 h-7 text-black transition-transform group-hover:-translate-y-0.5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.58 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+        </svg>
+      </button>
+
+      <!-- Dislike Button (Thumbs Down) -->
+      <button 
+        id="btn-dislike" 
+        title="Dislike Short (D)" 
+        aria-label="Dislike Short"
+        class="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center shadow-2xl shadow-black/80 hover:scale-110 active:scale-90 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-4 focus:ring-white/20">
+        <svg class="w-7 h-7 text-black transition-transform group-hover:translate-y-0.5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L8.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/>
+        </svg>
+      </button>
+
+      <!-- Settings Button (Gear Icon) -->
+      <button 
+        id="btn-settings" 
+        title="Preferences & Theme (S)" 
+        aria-label="Open Settings"
+        class="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center shadow-2xl shadow-black/80 hover:scale-110 active:scale-90 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-4 focus:ring-white/20">
+        <svg class="w-7 h-7 text-black transition-transform group-rotate-45" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+        </svg>
+      </button>
+
+    </div>
+
+    <!-- Keyboard Navigation Hints -->
+    <div class="mt-3.5 text-[11px] text-zinc-500 font-medium tracking-wide hidden sm:block">
+      <kbd class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">↑</kbd> <kbd class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">↓</kbd> Scroll (or wheel / swipe) • <kbd class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">Space / L</kbd> Like • <kbd class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">D</kbd> Dislike • <kbd class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">M</kbd> Mute • <kbd class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">S</kbd> Settings
+    </div>
+
+  </main>
+
+  <!-- SEARCH POPUP -->
+  <div id="search-modal" class="fixed inset-0 z-40 flex items-start justify-center pt-24 px-4 bg-black/55 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-200">
+    <div class="w-full max-w-[420px] bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl p-3 transform -translate-y-3 transition-transform duration-200" id="search-panel">
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <input id="short-search-input" type="search" value="shorts" autocomplete="off" placeholder="Search YouTube Shorts…" class="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-zinc-600" />
+        <button id="search-close-btn" class="text-zinc-500 hover:text-white px-2 text-lg" title="Close">×</button>
+      </div>
+      <div class="mt-2 flex items-center justify-between text-[10px] text-zinc-600">
+        <span id="search-location-hint">Regional discovery enabled</span>
+        <span>Enter to search • Esc to close</span>
+      </div>
+      <div id="search-results-status" class="hidden mt-3 text-[11px] text-zinc-500"></div>
+    </div>
+  </div>
+
+  <!-- PREFERENCES & CUSTOM THEME MODAL -->
+  <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300">
+    
+    <div class="bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-3xl p-6 shadow-2xl max-w-md w-full max-h-[85vh] overflow-y-auto no-scrollbar relative flex flex-col space-y-6">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center font-bold text-sm">
+            ⚙️
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Viewer Preferences</h3>
+            <p class="text-xs text-zinc-400">Customization & Feed Tuning</p>
+          </div>
+        </div>
+        <button id="close-settings-btn" class="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- YouTube Discovery / Infinite Feed -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            Infinite Shorts Feed
+          </label>
+          <span id="api-status-pill" class="text-[10px] px-2 py-1 rounded-full bg-zinc-800 text-zinc-400">Not connected</span>
+        </div>
+        <p class="text-[11px] leading-relaxed text-zinc-500">
+          Connect a YouTube Data API key to discover fresh, embeddable Shorts continuously. The feed learns from what <em>you watch</em> — not likes, comments, or popularity.
+        </p>
+        <div class="space-y-2">
+          <input id="youtube-api-key" type="password" autocomplete="off" placeholder="Paste YouTube Data API v3 key…" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors">
+          <div class="flex gap-2">
+            <button id="save-api-key-btn" class="flex-1 py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 active:scale-[0.98] transition-all cursor-pointer">Connect Feed</button>
+            <button id="clear-api-key-btn" class="px-4 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 font-semibold text-xs hover:bg-zinc-700 transition-all cursor-pointer">Clear</button>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-zinc-600">
+            <span id="api-key-hint">Key is stored only in this browser.</span>
+            <span>AU • ≤3 min • embeddable</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Location Intelligence -->
+      <div class="space-y-3 pt-2 border-t border-zinc-800">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Feed Location</label>
+          <span id="location-status" class="text-[10px] text-zinc-500">Detecting…</span>
+        </div>
+        <p class="text-[11px] leading-relaxed text-zinc-500">
+          idkvideos uses your browser location when you allow it, then adapts discovery to relevant regional languages. If location access is unavailable, your browser language and time zone are used instead.
+        </p>
+        <button id="detect-location-btn" class="w-full py-2.5 rounded-xl bg-zinc-800 text-zinc-200 font-semibold text-xs hover:bg-zinc-700 transition-all cursor-pointer">Use My Location</button>
+      </div>
+
+      <!-- Auto-scroll -->
+      <div class="space-y-3 pt-2 border-t border-zinc-800">
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Auto-scroll</label>
+            <p class="text-[10px] text-zinc-600 mt-1">Automatically move to the next Short when the current one finishes.</p>
+          </div>
+          <button id="auto-scroll-toggle" type="button" class="w-12 h-7 rounded-full bg-white relative transition-colors" aria-pressed="true" title="Toggle auto-scroll">
+            <span id="auto-scroll-knob" class="absolute top-1 left-6 w-5 h-5 rounded-full bg-black transition-all"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- idkvideos Level / Lifetime flex -->
+      <div class="space-y-3 pt-2 border-t border-zinc-800">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Your idkvideos Level</label>
+          <span id="settings-level-name" class="text-[10px] px-2 py-1 rounded-full bg-white text-black font-bold">Rookie</span>
+        </div>
+        <div class="bg-zinc-950 border border-zinc-800 rounded-2xl p-3">
+          <div class="flex items-end justify-between gap-3">
+            <div>
+              <div id="settings-level-title" class="text-lg font-black text-white">Lv 0 • Rookie</div>
+              <div id="settings-watch-count" class="text-[11px] text-zinc-500 mt-0.5">0 Shorts watched</div>
+            </div>
+            <div id="settings-next-level" class="text-[10px] text-zinc-500 text-right">Next: 10</div>
+          </div>
+          <div class="mt-3 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+            <div id="settings-level-progress" class="h-full rounded-full bg-white transition-all duration-500" style="width:0%"></div>
+          </div>
+          <p id="settings-level-message" class="text-[10px] text-zinc-600 mt-2">Every completed Short counts. Skips don't inflate your level. 😈</p>
+        </div>
+      </div>
+
+      <!-- Theme & Color Swatches -->
+      <div class="space-y-3">
+        <label class="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          Background Color Theme
+        </label>
+        
+        <div class="grid grid-cols-5 gap-2.5">
+          <button data-color="#000000" class="theme-preset h-10 rounded-xl bg-black border-2 border-white/80 transition-transform active:scale-95" title="Pure Black"></button>
+          <button data-color="#080c14" class="theme-preset h-10 rounded-xl bg-[#080c14] border border-zinc-700 transition-transform active:scale-95" title="Midnight Navy"></button>
+          <button data-color="#121212" class="theme-preset h-10 rounded-xl bg-[#121212] border border-zinc-700 transition-transform active:scale-95" title="Dark Charcoal"></button>
+          <button data-color="#140a0c" class="theme-preset h-10 rounded-xl bg-[#140a0c] border border-zinc-700 transition-transform active:scale-95" title="Dark Crimson"></button>
+          <button data-color="#0f172a" class="theme-preset h-10 rounded-xl bg-[#0f172a] border border-zinc-700 transition-transform active:scale-95" title="Deep Slate"></button>
+        </div>
+
+        <div class="flex items-center space-x-3 pt-1">
+          <div class="flex-1 flex items-center space-x-2 bg-zinc-950 border border-zinc-800 rounded-xl p-2">
+            <input type="color" id="custom-color-input" value="#000000" class="w-7 h-7 rounded bg-transparent border-0 cursor-pointer">
+            <span class="text-xs text-zinc-300 font-mono" id="color-hex-display">#000000</span>
+          </div>
+
+          <div class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-2 flex flex-col justify-center">
+            <div class="flex justify-between text-[11px] text-zinc-400 mb-1">
+              <span>Dimming Overlay</span>
+              <span id="dim-val">0%</span>
+            </div>
+            <input type="range" id="dim-slider" min="0" max="85" value="0" class="w-full accent-white h-1 bg-zinc-800 rounded-lg cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Custom YouTube Short -->
+      <div class="space-y-3 pt-2 border-t border-zinc-800">
+        <label class="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          Add Custom Short to Feed
+        </label>
+        
+        <div class="space-y-2">
+          <input 
+            type="text" 
+            id="custom-short-url" 
+            placeholder="Paste YouTube Short link or ID..." 
+            class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors">
+          
+          <div class="flex space-x-2">
+            <select id="custom-short-category" class="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none">
+              <option value="Science">Science</option>
+              <option value="Space">Space</option>
+              <option value="Nature">Nature</option>
+              <option value="Crafts">Crafts</option>
+              <option value="Music">Music</option>
+              <option value="Custom">Custom</option>
+            </select>
+
+            <input 
+              type="text" 
+              id="custom-short-tags" 
+              placeholder="Tags (comma separated)..." 
+              class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors">
+          </div>
+
+          <button id="add-custom-btn" class="w-full py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 active:scale-[0.98] transition-all cursor-pointer">
+            + Add Short to Feed
+          </button>
+        </div>
+      </div>
+
+      <!-- Feed Algorithm Intelligence -->
+      <div class="space-y-3 pt-2 border-t border-zinc-800">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            Feed Preference Intelligence
+          </label>
+          <button id="reset-weights-btn" class="text-[11px] text-rose-400 hover:text-rose-300 font-medium underline cursor-pointer">
+            Reset Preferences
+          </button>
+        </div>
+
+        <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 space-y-2.5">
+          <div class="flex justify-between text-xs text-zinc-300">
+            <span>Liked Shorts: <strong id="stat-likes" class="text-white">0</strong></span>
+            <span>Disliked Shorts: <strong id="stat-dislikes" class="text-white">0</strong></span>
+          </div>
+
+          <div>
+            <span class="text-[11px] text-zinc-400 block mb-1">Active Topic Weights:</span>
+            <div id="top-tags-container" class="flex flex-wrap gap-1.5">
+              <span class="text-[11px] text-zinc-500 italic">No preferences registered yet. Like or dislike shorts to tune your feed!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legal -->
+      <div class="pt-3 border-t border-zinc-800 space-y-2">
+        <div class="text-[10px] text-zinc-600 leading-relaxed">YouTube is the source of the displayed video content. idkvideos uses YouTube API Services and the official embedded player.</div>
+        <div class="flex gap-2">
+          <button id="open-terms-btn" class="flex-1 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-400 hover:text-white transition-colors">Terms</button>
+          <button id="open-privacy-btn" class="flex-1 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-400 hover:text-white transition-colors">Privacy</button>
+          <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" class="flex-1 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-400 hover:text-white transition-colors text-center">YouTube Terms</a>
+        </div>
+      </div>
+
+      <!-- idkvideos credits -->
+      <div class="pt-3 border-t border-zinc-800 text-center space-y-1.5">
+        <div class="text-[11px] font-semibold text-zinc-300">idkvideos</div>
+        <div class="text-[10px] text-zinc-500 leading-relaxed">
+          idkvideos is an independent third-party application. Video content is provided through YouTube's official embedded player. idkvideos does not host or download YouTube videos.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FIRST-RUN LEGAL CONSENT -->
+  <div id="legal-consent-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+    <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl max-w-md w-full max-h-[85vh] overflow-y-auto">
+      <div class="text-xs uppercase tracking-widest text-zinc-500 font-bold">idkvideos</div>
+      <h2 class="text-2xl font-black text-white mt-2">Before you scroll.</h2>
+      <p class="text-xs leading-relaxed text-zinc-400 mt-3">idkvideos is an independent third-party application that uses YouTube API Services and YouTube's official embedded player. YouTube is the source of the video content.</p>
+      <div class="mt-4 space-y-3 text-[11px] leading-relaxed text-zinc-500">
+        <p>By continuing, you agree to the idkvideos Terms of Use and Privacy Policy. Our Terms also state that using idkvideos means you agree to be bound by the <a class="text-white underline" href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a> when YouTube API Services are used.</p>
+        <p>We store feed preferences, likes/dislikes, watch progress, level progress, and settings locally in this browser. Your YouTube API key is stored locally and is sent directly from this browser to Google's YouTube Data API. idkvideos does not ask for or store your YouTube account password.</p>
+        <p>You can clear locally stored idkvideos data using the reset controls or by clearing this site's browser storage.</p>
+      </div>
+      <div class="mt-5 flex gap-2">
+        <button id="view-legal-btn" class="flex-1 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:text-white">Read Terms & Privacy</button>
+        <button id="accept-legal-btn" class="flex-1 py-3 rounded-xl bg-white text-black text-xs font-bold hover:bg-zinc-200">Agree & Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="legal-detail-modal" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md opacity-0 pointer-events-none transition-all">
+    <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h2 id="legal-detail-title" class="text-lg font-black text-white">Terms of Use</h2>
+        <button id="close-legal-detail" class="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white">✕</button>
+      </div>
+      <div id="legal-detail-body" class="mt-4 text-[11px] leading-relaxed text-zinc-400 space-y-3"></div>
+    </div>
+  </div>
+
+  <script>
+    // Stage 2: the local array is now a rolling queue populated from the YouTube Data API.
+    // No social ranking is used. Discovery is based on topics + your watch behaviour.
+    const SHORTS_DATASET = [];
+    const DISCOVERY_TOPICS = [
+      'interesting facts shorts', 'science shorts', 'technology shorts', 'gaming shorts',
+      'engineering shorts', 'space shorts', 'nature shorts', 'history shorts',
+      'satisfying shorts', 'funny shorts', 'music shorts', 'creative shorts'
+    ];
+
+    let shortsLibrary = [...SHORTS_DATASET];
+    let tagWeights = {};
+    let categoryWeights = {};
+    let watchedHistory = [];
+    let consumedVideoIds = new Set();
+    let dislikedSet = new Set();
+    let totalWatched = 0;
+    let firstDiscoveryDone = false;
+    let autoScrollEnabled = true;
+    let autoScrollTimer = null;
+    let legalAccepted = false;
+
+    const LEVELS = [
+      { name: 'Rookie', threshold: 0, icon: '🌱' },
+      { name: 'Curious Scroller', threshold: 10, icon: '👀' },
+      { name: 'Scroll Initiate', threshold: 50, icon: '🌀' },
+      { name: 'Passive Fiend', threshold: 100, icon: '😈' },
+      { name: 'Scroll Addict', threshold: 1000, icon: '📱' },
+      { name: 'Feed Dweller', threshold: 10000, icon: '🧠' },
+      { name: 'Infinite Scroller', threshold: 100000, icon: '♾️' },
+      { name: 'Doomscroller', threshold: 1000000, icon: '💀' },
+      { name: 'Beyond Human', threshold: 1000000000, icon: '👁️' },
+      { name: 'Reality Glitch', threshold: 1000000000000, icon: '🕳️' },
+      { name: 'Scroll Deity', threshold: 1000000000000000, icon: '☄️' },
+      { name: 'idkvideos', threshold: 1000000000000000000, icon: '⚫' }
+    ];
+
+    let currentVideoIndex = 0;
+    let likedCount = 0;
+    let dislikedCount = 0;
+    let isMuted = false;
+    let currentVolume = 100;
+    let initialAutoplayPending = true;
+    let firstUserGestureSeen = false;
+    let isAnimating = false;
+    let scrollCooldown = false;
+
+    // YouTube Player Instance
+    let ytPlayer = null;
+    let isPlayerReady = false;
+
+    // Infinite-feed state
+    // Built-in default key so the app starts playing straight away.
+    // A key saved in Settings overrides it; "Disconnect" falls back to it.
+    const DEFAULT_API_KEY = 'AIzaSyDGHotY_qlBqwC9e6a09-mFTwDUm8uLY0s';
+    let youtubeApiKey = DEFAULT_API_KEY;
+    let regionalLanguages = ['en'];
+    let regionalCountry = 'AU';
+    let locationSource = 'browser';
+    let locationReady = false;
+    let discoveryTopicIndex = 0;
+    let discoveryPageToken = '';
+    let discoveryLoading = false;
+    let discoveryExhausted = false;
+    let seenVideoIds = new Set();
+    let watchStartedAt = 0;
+    let watchSeconds = 0;
+    let lastPlayerState = null;
+    let queueGeneration = 0;
+    let prefetchPromise = null;
+
+    function loadState() {
+      try {
+        const savedWeights = localStorage.getItem('yt_tag_weights');
+        if (savedWeights) tagWeights = JSON.parse(savedWeights);
+
+        const savedCat = localStorage.getItem('yt_cat_weights');
+        if (savedCat) categoryWeights = JSON.parse(savedCat);
+
+        const savedCustom = localStorage.getItem('yt_custom_shorts');
+        if (savedCustom) {
+          const customItems = JSON.parse(savedCustom);
+          shortsLibrary = [...SHORTS_DATASET, ...customItems];
+        }
+
+        const savedStats = localStorage.getItem('yt_stats');
+        if (savedStats) {
+          const stats = JSON.parse(savedStats);
+          likedCount = stats.likes || 0;
+          dislikedCount = stats.dislikes || 0;
+          totalWatched = Number(stats.totalWatched || 0);
+        }
+        updateLevelUI();
+
+        const savedTheme = localStorage.getItem('yt_theme_color');
+        if (savedTheme) applyThemeColor(savedTheme);
+
+        youtubeApiKey = localStorage.getItem('yt_api_key') || DEFAULT_API_KEY;
+        autoScrollEnabled = localStorage.getItem('idkvideos_auto_scroll') !== 'false';
+        legalAccepted = localStorage.getItem('idkvideos_legal_accepted') === 'true';
+        regionalLanguages = JSON.parse(localStorage.getItem('yt_regional_languages') || '["en"]');
+        regionalCountry = localStorage.getItem('yt_regional_country') || 'AU';
+        locationSource = localStorage.getItem('yt_location_source') || 'browser';
+        updateLocationUI();
+        const savedSeen = JSON.parse(localStorage.getItem('yt_seen_video_ids') || '[]');
+        seenVideoIds = new Set(Array.isArray(savedSeen) ? savedSeen : []);
+        const savedConsumed = JSON.parse(localStorage.getItem('yt_consumed_video_ids') || '[]');
+        consumedVideoIds = new Set(Array.isArray(savedConsumed) ? savedConsumed : []);
+        const savedDisliked = JSON.parse(localStorage.getItem('yt_disliked_video_ids') || '[]');
+        dislikedSet = new Set(Array.isArray(savedDisliked) ? savedDisliked : []);
+        const savedTopicIndex = parseInt(localStorage.getItem('yt_discovery_topic') || '0', 10);
+        if (Number.isFinite(savedTopicIndex)) discoveryTopicIndex = savedTopicIndex % DISCOVERY_TOPICS.length;
+        updateApiStatus();
+      } catch (e) {
+        console.warn('LocalStorage unavailable');
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem('yt_tag_weights', JSON.stringify(tagWeights));
+        localStorage.setItem('yt_cat_weights', JSON.stringify(categoryWeights));
+        localStorage.setItem('yt_stats', JSON.stringify({ likes: likedCount, dislikes: dislikedCount, totalWatched }));
+      } catch (e) {}
+    }
+
+    function formatLevelNumber(n) {
+      if (n >= 1e18) return '1 quintillion';
+      if (n >= 1e15) return '1 quadrillion';
+      if (n >= 1e12) return '1 trillion';
+      if (n >= 1e9) return '1 billion';
+      if (n >= 1e6) return '1 million';
+      if (n >= 1e3) return `${n / 1e3}k`;
+      return String(n);
+    }
+
+    function getCurrentLevel() {
+      let idx = 0;
+      for (let i = 0; i < LEVELS.length; i++) {
+        if (totalWatched >= LEVELS[i].threshold) idx = i;
+        else break;
+      }
+      return { level: LEVELS[idx], index: idx, next: LEVELS[idx + 1] || null };
+    }
+
+    function updateLevelUI() {
+      const { level, index, next } = getCurrentLevel();
+      const badge = document.getElementById('level-badge');
+      const title = document.getElementById('settings-level-title');
+      const name = document.getElementById('settings-level-name');
+      const count = document.getElementById('settings-watch-count');
+      const nextEl = document.getElementById('settings-next-level');
+      const progress = document.getElementById('settings-level-progress');
+      const message = document.getElementById('settings-level-message');
+      if (badge) badge.textContent = `Lv ${index} • ${level.name}`;
+      if (title) title.textContent = `${level.icon} Lv ${index} • ${level.name}`;
+      if (name) name.textContent = level.name;
+      if (count) count.textContent = `${totalWatched.toLocaleString()} Shorts watched`;
+      if (nextEl) nextEl.textContent = next ? `Next: ${formatLevelNumber(next.threshold)}` : 'MAXIMUM';
+      if (progress) {
+        if (!next) progress.style.width = '100%';
+        else {
+          const from = level.threshold;
+          const to = next.threshold;
+          const pct = Math.max(0, Math.min(100, ((totalWatched - from) / (to - from)) * 100));
+          progress.style.width = `${pct}%`;
+        }
+      }
+      if (message) message.textContent = !next ? 'You actually became idkvideos. Mission complete. 😭' : `Only ${Math.max(0, next.threshold - totalWatched).toLocaleString()} more Shorts to level up.`;
+    }
+
+    function clearAutoScrollTimer() {
+      if (autoScrollTimer) { clearTimeout(autoScrollTimer); autoScrollTimer = null; }
+    }
+
+    function scheduleAutoScroll() {
+      clearAutoScrollTimer();
+      if (!autoScrollEnabled || !isPlayerReady) return;
+      // Auto-scroll is intentionally tied to the player's natural completion.
+      // We do not interrupt playback or fake a completed view.
+    }
+
+    function countWatchedShort() {
+      totalWatched += 1;
+      saveState();
+      updateLevelUI();
+      showToast(`+1 completed Short • ${totalWatched.toLocaleString()} total`);
+    }
+
+    function onYouTubeIframeAPIReady() {
+      // The player is created only after the first API-discovered video is available.
+      if (shortsLibrary.length) createYouTubePlayer(shortsLibrary[0].id);
+    }
+
+    function createYouTubePlayer(videoId) {
+      if (!window.YT || !YT.Player || !videoId) return;
+      if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+        if (initialAutoplayPending && !firstUserGestureSeen) {
+          try { ytPlayer.mute(); } catch(e) {}
+        }
+        ytPlayer.loadVideoById({ videoId, startSeconds: 0 });
+        if (initialAutoplayPending && !firstUserGestureSeen) {
+          setTimeout(() => { try { ytPlayer.mute(); ytPlayer.playVideo(); } catch(e) {} }, 80);
+        }
+        return;
+      }
+
+      ytPlayer = new YT.Player('youtube-player', {
+        videoId,
+        host: 'https://www.youtube.com',
+        playerVars: {
+          // Keep the known-good YouTube player configuration. Do not strip the iframe/player infrastructure.
+          autoplay: 1, controls: 1, playsinline: 1, rel: 0, mute: 1,
+          origin: window.location.origin,
+          widget_referrer: window.location.href
+        },
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange,
+          'onError': onPlayerError
+        }
+      });
+    }
+
+    function onPlayerReady(event) {
+      isPlayerReady = true;
+      event.target.setVolume(currentVolume);
+
+      // Browsers commonly block autoplay with sound. Start muted so the first
+      // Short actually plays on page load, then unlock sound on the first user
+      // interaction. The volume preference is preserved.
+      if (initialAutoplayPending && !firstUserGestureSeen) {
+        isMuted = true;
+        event.target.mute();
+        document.getElementById('mute-icon').textContent = '🔇';
+        document.getElementById('volume-text').textContent = '0%';
+        event.target.playVideo();
+      } else if (isMuted) {
+        event.target.mute();
+        event.target.playVideo();
+      } else {
+        event.target.unMute();
+        event.target.setVolume(currentVolume);
+        event.target.playVideo();
+      }
+      updateTopTitleUI();
+    }
+
+    function onPlayerStateChange(event) {
+      const now = performance.now();
+      if (lastPlayerState === YT.PlayerState.PLAYING && watchStartedAt) {
+        watchSeconds += Math.max(0, (now - watchStartedAt) / 1000);
+      }
+
+      lastPlayerState = event.data;
+      if (event.data === YT.PlayerState.PLAYING) {
+        watchStartedAt = now;
+        hideErrorFallback();
+        updateFeedStatus();
+      } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.BUFFERING) {
+        watchStartedAt = 0;
+      } else if (event.data === YT.PlayerState.ENDED) {
+        recordWatchBehaviour(true);
+        watchStartedAt = 0;
+        countWatchedShort();
+        if (autoScrollEnabled) navigateNext('up');
+        else showToast('Short complete • Auto-scroll is off');
+      }
+    }
+
+    function onPlayerError(event) {
+      const code = event && event.data != null ? event.data : 'unknown';
+      console.warn('YouTube Player error:', code);
+      const msg = code === 153 ? 'YouTube rejected the player identity (Error 153).' :
+                  code === 101 || code === 150 ? 'This video cannot be embedded by its owner.' :
+                  `YouTube playback error ${code}.`;
+      document.querySelector('#error-fallback-card p').textContent = msg;
+      showErrorFallback();
+      setTimeout(() => navigateNext('up'), 700);
+    }
+
+    function showErrorFallback() {
+      document.getElementById('error-fallback-card').classList.remove('hidden');
+    }
+
+    function hideErrorFallback() {
+      document.getElementById('error-fallback-card').classList.add('hidden');
+    }
+
+    function calculateVideoScore(video) {
+      let score = 0;
+      if (categoryWeights[video.category]) score += categoryWeights[video.category] * 2.5;
+      (video.tags || []).forEach(tag => {
+        score += (tagWeights[tag] || 0) * 1.5;
+        score -= (tagWeights[`__dislike__${tag}`] || 0) * 3.5;
+      });
+      score -= (categoryWeights[`__dislike__${video.category}`] || 0) * 4;
+
+      // A video matching several tags from a previously disliked Short gets a
+      // strong penalty. This makes Dislike meaningfully different from Like.
+      const dislikedProfiles = shortsLibrary.filter(v => dislikedSet.has(v.id));
+      for (const disliked of dislikedProfiles) {
+        const a = new Set(disliked.tags || []);
+        const b = video.tags || [];
+        const overlap = b.filter(tag => a.has(tag)).length;
+        if (overlap >= 2) score -= 7 + overlap * 1.5;
+        else if (overlap === 1) score -= 2.5;
+        if (disliked.category && video.category === disliked.category) score -= 5;
+      }
+
+      // Small novelty bonus. We do NOT use YouTube like/comment/view counts.
+      score += Math.random() * 2;
+      return score;
+    }
+
+    function getNextVideoIndex() {
+      if (shortsLibrary.length === 0) return -1;
+      const candidates = shortsLibrary
+        .map((video, index) => ({ video, index, score: calculateVideoScore(video) }))
+        .filter(x => !dislikedSet.has(x.video.id) && !consumedVideoIds.has(x.video.id) && !x.video.invalid && !isVideoFilteredByLanguage(x.video));
+      if (!candidates.length) return -1;
+      candidates.sort((a, b) => b.score - a.score);
+      return candidates[0].index;
+    }
+
+    function recordWatchBehaviour(completed = false) {
+      const video = shortsLibrary[currentVideoIndex];
+      if (!video) return;
+      const duration = Math.max(0, watchSeconds);
+      const ratio = completed ? 1 : Math.min(1, duration / Math.max(8, video.durationSeconds || 30));
+      const strength = ratio >= 0.8 ? 2.2 : ratio >= 0.45 ? 0.9 : ratio < 0.12 ? -0.8 : 0.2;
+      if (Math.abs(strength) > 0) {
+        if (video.category) categoryWeights[video.category] = (categoryWeights[video.category] || 0) + strength;
+        (video.tags || []).forEach(tag => { tagWeights[tag] = (tagWeights[tag] || 0) + strength; });
+        saveState();
+      }
+      watchSeconds = 0;
+    }
+
+    function updateTopTitleUI() {
+      const video = shortsLibrary[currentVideoIndex];
+      if (!video) return;
+
+      document.getElementById('top-video-title').textContent = video.title || 'YouTube Short';
+      document.getElementById('category-badge').textContent = video.category || 'Short';
+      document.getElementById('creator-badge').textContent = video.creator || '@Creator';
+    }
+
+    function loadVideoInPlayer(idx) {
+      if (idx < 0 || idx >= shortsLibrary.length) return;
+      recordWatchBehaviour(false);
+      currentVideoIndex = idx;
+      const video = shortsLibrary[currentVideoIndex];
+      if (!video) return;
+
+      hideErrorFallback();
+      watchedHistory.push(video.id);
+      if (watchedHistory.length > 250) watchedHistory.shift();
+      consumedVideoIds.add(video.id);
+      if (consumedVideoIds.size > 5000) consumedVideoIds = new Set([...consumedVideoIds].slice(-4000));
+      try { localStorage.setItem('yt_consumed_video_ids', JSON.stringify([...consumedVideoIds])); } catch(e) {}
+      seenVideoIds.add(video.id);
+      if (seenVideoIds.size > 5000) seenVideoIds = new Set([...seenVideoIds].slice(-4000));
+      try { localStorage.setItem('yt_seen_video_ids', JSON.stringify([...seenVideoIds])); } catch(e) {}
+
+      updateTopTitleUI();
+      updateQueueUI();
+      watchSeconds = 0;
+      watchStartedAt = 0;
+      createYouTubePlayer(video.id);
+
+      const remaining = shortsLibrary.filter(v => !consumedVideoIds.has(v.id)).length;
+      if (remaining < 8) ensureFeedBuffer(true);
+    }
+
+    function animateTransition(direction, callback) {
+      if (isAnimating) return;
+      isAnimating = true;
+
+      const card = document.getElementById('video-card');
+      const outClass = direction === 'up' ? 'slide-out-up' : 'slide-out-down';
+      const inClass = direction === 'up' ? 'slide-in-up' : 'slide-in-down';
+
+      card.classList.add(outClass);
+
+      setTimeout(() => {
+        callback();
+        card.classList.remove(outClass);
+        card.classList.add(inClass);
+
+        setTimeout(() => {
+          card.classList.remove(inClass);
+          isAnimating = false;
+        }, 360);
+      }, 300);
+    }
+
+    async function navigateNext(direction = 'up') {
+      if (isAnimating) return;
+      recordWatchBehaviour(false);
+      let nextIdx = getNextVideoIndex();
+      if (nextIdx < 0) {
+        await ensureFeedBuffer(true);
+        nextIdx = getNextVideoIndex();
+      }
+      if (nextIdx < 0) {
+        showToast('Feed is fetching more Shorts…');
+        ensureFeedBuffer(true);
+        return;
+      }
+      animateTransition(direction, () => loadVideoInPlayer(nextIdx));
+    }
+
+    function navigatePrev() {
+      if (!shortsLibrary.length) return;
+      const prevIdx = (currentVideoIndex - 1 + shortsLibrary.length) % shortsLibrary.length;
+      animateTransition('down', () => loadVideoInPlayer(prevIdx));
+    }
+
+    function updateFeedStatus() {
+      const el = document.getElementById('feed-status');
+      if (!el) return;
+      el.textContent = youtubeApiKey ? (discoveryLoading ? 'Finding fresh Shorts…' : 'Live infinite feed') : 'Add a YouTube API key in Settings';
+      updateQueueUI();
+    }
+
+    function updateQueueUI() {
+      const el = document.getElementById('queue-count');
+      if (el) el.textContent = shortsLibrary.length ? `• ${shortsLibrary.length} loaded` : '';
+    }
+
+    function updateApiStatus() {
+      const pill = document.getElementById('api-status-pill');
+      const input = document.getElementById('youtube-api-key');
+      if (!pill) return;
+      if (youtubeApiKey) {
+        pill.textContent = 'Connected'; pill.className = 'text-[10px] px-2 py-1 rounded-full bg-emerald-950 text-emerald-300';
+        if (input) input.value = youtubeApiKey;
+      } else {
+        pill.textContent = 'Not connected'; pill.className = 'text-[10px] px-2 py-1 rounded-full bg-zinc-800 text-zinc-400';
+      }
+      updateFeedStatus();
+    }
+
+    const LANGUAGE_NAMES = { en: 'English', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', kn: 'Kannada', bn: 'Bengali', mr: 'Marathi', gu: 'Gujarati', pa: 'Punjabi', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ja: 'Japanese', ko: 'Korean', zh: 'Chinese' };
+
+    function getRegionalLanguageProfile(country, browserLang) {
+      const lang = String(browserLang || navigator.language || 'en').toLowerCase().split('-')[0];
+      if (country === 'IN') {
+        const india = ['hi','ta','te','bn','mr','gu','kn','ml','pa'];
+        return india.includes(lang) ? [lang, 'en'] : ['hi','ta','te','en'];
+      }
+      if (country === 'AU') return ['en'];
+      if (country === 'US' || country === 'CA' || country === 'GB' || country === 'NZ') return ['en'];
+      return LANGUAGE_NAMES[lang] ? [lang] : ['en'];
+    }
+
+    function inferCountryFromLocation(lat, lon) {
+      if (lat >= -44 && lat <= -10 && lon >= 112 && lon <= 154) return 'AU';
+      if (lat >= 6 && lat <= 37 && lon >= 68 && lon <= 98) return 'IN';
+      return '';
+    }
+
+    function updateLocationUI() {
+      const el = document.getElementById('location-status');
+      const hint = document.getElementById('search-location-hint');
+      const names = regionalLanguages.map(x => LANGUAGE_NAMES[x] || x);
+      const label = regionalCountry ? regionalCountry : 'your region';
+      if (el) el.textContent = `${label} • ${names.join(', ')}`;
+      if (hint) hint.textContent = `Regional: ${names.join(', ')}`;
+    }
+
+    function setRegionalProfile(country, browserLang, source) {
+      regionalCountry = country || '';
+      locationSource = source || 'browser';
+      regionalLanguages = getRegionalLanguageProfile(regionalCountry, browserLang);
+      localStorage.setItem('yt_regional_languages', JSON.stringify(regionalLanguages));
+      localStorage.setItem('yt_regional_country', regionalCountry);
+      localStorage.setItem('yt_location_source', locationSource);
+      updateLocationUI();
+    }
+
+    function detectRegionalLocation() {
+      const fallback = () => {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        const browserLang = navigator.language || 'en';
+        if (tz === 'Australia/Sydney' || tz === 'Australia/Melbourne' || tz === 'Australia/Brisbane' || tz === 'Australia/Perth' || tz.startsWith('Australia/')) setRegionalProfile('AU', browserLang, 'timezone');
+        else if (tz === 'Asia/Kolkata') setRegionalProfile('IN', browserLang, 'timezone');
+        else setRegionalProfile('', browserLang, 'browser');
+      };
+      if (!navigator.geolocation) { fallback(); return; }
+      navigator.geolocation.getCurrentPosition(pos => {
+        const country = inferCountryFromLocation(pos.coords.latitude, pos.coords.longitude);
+        setRegionalProfile(country, navigator.language, 'geolocation');
+      }, fallback, { enableHighAccuracy: false, timeout: 5000, maximumAge: 86400000 });
+    }
+
+    function parseISODuration(value) {
+      const m = String(value || '').match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (!m) return 99999;
+      return (Number(m[1] || 0) * 3600) + (Number(m[2] || 0) * 60) + Number(m[3] || 0);
+    }
+
+    function extractTags(item) {
+      const text = `${item.snippet?.title || ''} ${item.snippet?.description || ''}`.toLowerCase();
+      const words = text.match(/[a-z0-9]{3,}/g) || [];
+      const stop = new Set(['the','and','for','this','that','with','you','are','short','shorts','youtube','from','what','why','how','your','just','about','have','will','they','into','its','was','but','not','can','our','out']);
+      return [...new Set(words.filter(w => !stop.has(w)))].slice(0, 10);
+    }
+
+    async function youtubeFetch(path, params) {
+      if (!youtubeApiKey) throw new Error('NO_API_KEY');
+      const url = new URL(`https://www.googleapis.com/youtube/v3/${path}`);
+      Object.entries({ ...params, key: youtubeApiKey }).forEach(([k,v]) => { if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v); });
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error?.message || `YouTube API ${response.status}`);
+      return data;
+    }
+
+    async function discoverShorts(force = false) {
+      if (discoveryLoading || !youtubeApiKey) return;
+      if (!force && shortsLibrary.length >= 12) return;
+      discoveryLoading = true;
+      updateFeedStatus();
+      try {
+        const topics = DISCOVERY_TOPICS;
+        const regionalLanguage = regionalLanguages[discoveryTopicIndex % regionalLanguages.length] || 'en';
+        const languageSuffix = regionalLanguage ? ` ${LANGUAGE_NAMES[regionalLanguage] || regionalLanguage}` : '';
+        // Mission rule: the first discovery on every fresh app session starts by
+        // explicitly searching YouTube for Shorts. After that, the personalized
+        // topic engine takes over.
+        const topic = !firstDiscoveryDone ? 'shorts' : topics[discoveryTopicIndex % topics.length];
+        const query = !firstDiscoveryDone ? 'shorts' : `${topic}${languageSuffix}`;
+        firstDiscoveryDone = true;
+        const data = await youtubeFetch('search', {
+          part: 'snippet', type: 'video', q: query, maxResults: 25,
+          pageToken: discoveryPageToken || undefined, order: 'relevance',
+          videoDuration: 'short', videoEmbeddable: 'true', videoSyndicated: 'true',
+          safeSearch: 'moderate', regionCode: regionalCountry || undefined, relevanceLanguage: regionalLanguage
+        });
+        discoveryPageToken = data.nextPageToken || '';
+        if (!discoveryPageToken) discoveryTopicIndex = (discoveryTopicIndex + 1) % DISCOVERY_TOPICS.length;
+        localStorage.setItem('yt_discovery_topic', String(discoveryTopicIndex));
+
+        const ids = (data.items || []).map(x => x.id?.videoId).filter(Boolean).filter(id => !seenVideoIds.has(id));
+        if (!ids.length) {
+          if (discoveryPageToken) return discoverShorts(true);
+          discoveryTopicIndex = (discoveryTopicIndex + 1) % DISCOVERY_TOPICS.length;
+          discoveryPageToken = '';
+          return discoverShorts(true);
+        }
+
+        // IMPORTANT: don't block the feed on a second API request.
+        // Search results already contain enough information to start playback.
+        // Metadata/embeddability is enriched in the background so the first Short
+        // can appear as soon as the search request finishes.
+        const fresh = (data.items || []).map(x => ({
+          id: x.id?.videoId,
+          title: x.snippet?.title || 'YouTube Short',
+          category: x.snippet?.channelTitle || 'Shorts',
+          creator: x.snippet?.channelTitle ? '@' + x.snippet.channelTitle.replace(/\s+/g, '') : '@YouTube',
+          tags: extractTags(x),
+          description: x.snippet?.description || '',
+          language: x.snippet?.defaultLanguage || x.snippet?.defaultAudioLanguage || '',
+          durationSeconds: 30,
+          pendingValidation: true
+        })).filter(v => v.id && !seenVideoIds.has(v.id));
+
+        // Shuffle immediately so the feed isn't simply YouTube's search ranking.
+        for (let i = fresh.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [fresh[i], fresh[j]] = [fresh[j], fresh[i]];
+        }
+
+        fresh.forEach(item => { if (isVideoFilteredByLanguage(item)) item.invalid = true; });
+        shortsLibrary.push(...fresh);
+        updateQueueUI();
+
+        // Enrich and validate in the background. Playback no longer waits for this.
+        youtubeFetch('videos', { part: 'snippet,contentDetails,status', id: ids.join(',') })
+          .then(details => {
+            const byId = new Map((details.items || []).map(v => [v.id, v]));
+            fresh.forEach(item => {
+              const v = byId.get(item.id);
+              if (!v) { item.invalid = true; return; }
+              const seconds = parseISODuration(v.contentDetails?.duration);
+              if (!(seconds > 0 && seconds <= 180) || v.status?.privacyStatus !== 'public' || v.status?.embeddable === false) {
+                item.invalid = true;
+                return;
+              }
+              item.title = v.snippet?.title || item.title;
+              item.description = v.snippet?.description || item.description || '';
+              item.language = v.snippet?.defaultAudioLanguage || v.snippet?.defaultLanguage || item.language || '';
+              item.category = v.snippet?.channelTitle || item.category;
+              if (isVideoFilteredByLanguage(item)) { item.invalid = true; return; }
+              item.creator = v.snippet?.channelTitle ? '@' + v.snippet.channelTitle.replace(/\s+/g, '') : item.creator;
+              item.tags = extractTags(v);
+              item.durationSeconds = seconds;
+              item.pendingValidation = false;
+            });
+            updateTopTitleUI();
+            updateQueueUI();
+          })
+          .catch(error => console.warn('Background video metadata lookup failed:', error));
+
+        if (!fresh.length && !discoveryPageToken) {
+          discoveryTopicIndex = (discoveryTopicIndex + 1) % DISCOVERY_TOPICS.length;
+        }
+      } catch (error) {
+        console.error('Discovery failed:', error);
+        showToast(error.message === 'NO_API_KEY' ? 'Add your YouTube API key in Settings' : `Discovery error: ${error.message}`);
+      } finally {
+        discoveryLoading = false;
+        updateFeedStatus();
+      }
+    }
+
+    function ensureFeedBuffer(force = false) {
+      if (!youtubeApiKey) return Promise.resolve();
+      if (!force && shortsLibrary.length >= 10) return Promise.resolve();
+      if (!prefetchPromise) {
+        prefetchPromise = discoverShorts(force).finally(() => { prefetchPromise = null; });
+      }
+      return prefetchPromise;
+    }
+
+    function startInfiniteFeed() {
+      if (!youtubeApiKey) {
+        updateApiStatus();
+        showErrorFallback();
+        document.querySelector('#error-fallback-card h3').textContent = 'Connect your YouTube feed';
+        document.querySelector('#error-fallback-card p').textContent = 'Open Settings and add a YouTube Data API v3 key to start infinite Shorts discovery.';
+        return;
+      }
+      document.querySelector('#error-fallback-card h3').textContent = 'YouTube playback error';
+      initialAutoplayPending = true;
+      firstUserGestureSeen = false;
+      isMuted = false;
+      ensureFeedBuffer(true).then(() => {
+        if (!shortsLibrary.length) {
+          showToast('Still finding Shorts…');
+          return;
+        }
+        hideErrorFallback();
+        const firstIdx = getNextVideoIndex();
+        loadVideoInPlayer(firstIdx >= 0 ? firstIdx : 0);
+        ensureFeedBuffer(true);
+      });
+    }
+
+    function handleLike() {
+      const video = shortsLibrary[currentVideoIndex];
+      if (!video) return;
+
+      if (video.category) {
+        categoryWeights[video.category] = (categoryWeights[video.category] || 0) + 2.5;
+      }
+      if (video.tags && Array.isArray(video.tags)) {
+        video.tags.forEach(tag => {
+          tagWeights[tag] = (tagWeights[tag] || 0) + 1.8;
+        });
+      }
+
+      likedCount++;
+      saveState();
+      updateStatsUI();
+
+      triggerReactionParticle('👍', 'like');
+      showToast('👍 Liked • Feed tuned to similar shorts!');
+
+      navigateNext('up');
+    }
+
+    function handleDislike() {
+      const video = shortsLibrary[currentVideoIndex];
+      if (!video) return;
+
+      // Dislike is a hard negative signal: remember the exact video and learn
+      // which tags/channel should be avoided. It must never behave like Like.
+      dislikedSet.add(video.id);
+      if (video.category) {
+        categoryWeights[`__dislike__${video.category}`] = (categoryWeights[`__dislike__${video.category}`] || 0) + 1;
+      }
+      (video.tags || []).forEach(tag => {
+        tagWeights[`__dislike__${tag}`] = (tagWeights[`__dislike__${tag}`] || 0) + 1;
+      });
+
+      dislikedCount++;
+      consumedVideoIds.add(video.id);
+      saveState();
+      try {
+        localStorage.setItem('yt_disliked_video_ids', JSON.stringify([...dislikedSet].slice(-5000)));
+      } catch (e) {}
+      updateStatsUI();
+
+      triggerReactionParticle('👎', 'dislike');
+      showToast('👎 Disliked • Similar content will be avoided');
+
+      // Select a fresh, non-disliked video. Direction only controls animation.
+      navigateNext('up');
+    }
+
+    function triggerReactionParticle(symbol, type) {
+      const particle = document.getElementById('reaction-particle');
+      const inner = document.getElementById('reaction-inner');
+      inner.textContent = symbol;
+
+      particle.classList.remove('hidden', 'animate-float-like', 'animate-float-dislike');
+      void particle.offsetWidth; // Force CSS reflow
+
+      const animClass = type === 'like' ? 'animate-float-like' : 'animate-float-dislike';
+      particle.classList.add(animClass);
+
+      setTimeout(() => {
+        particle.classList.add('hidden');
+      }, 750);
+    }
+
+    function handleVolumeChange(val) {
+      currentVolume = parseInt(val, 10);
+      document.getElementById('volume-text').textContent = `${currentVolume}%`;
+      const muteIcon = document.getElementById('mute-icon');
+
+      if (currentVolume === 0) {
+        isMuted = true;
+        muteIcon.textContent = '🔇';
+        if (ytPlayer && isPlayerReady) ytPlayer.mute();
+      } else {
+        isMuted = false;
+        muteIcon.textContent = '🔊';
+        if (ytPlayer && isPlayerReady) {
+          ytPlayer.unMute();
+          ytPlayer.setVolume(currentVolume);
+        }
+      }
+    }
+
+    function toggleMute() {
+      const slider = document.getElementById('volume-slider');
+      if (isMuted) {
+        isMuted = false;
+        if (currentVolume === 0) currentVolume = 80;
+        slider.value = currentVolume;
+        handleVolumeChange(currentVolume);
+      } else {
+        isMuted = true;
+        document.getElementById('mute-icon').textContent = '🔇';
+        document.getElementById('volume-text').textContent = '0%';
+        if (ytPlayer && isPlayerReady) ytPlayer.mute();
+      }
+    }
+
+    function unlockAutoplayAudio() {
+      if (firstUserGestureSeen) return;
+      firstUserGestureSeen = true;
+      initialAutoplayPending = false;
+      if (ytPlayer && isPlayerReady) {
+        if (currentVolume > 0) {
+          isMuted = false;
+          ytPlayer.unMute();
+          ytPlayer.setVolume(currentVolume);
+          document.getElementById('mute-icon').textContent = '🔊';
+          document.getElementById('volume-text').textContent = `${currentVolume}%`;
+        }
+        ytPlayer.playVideo();
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast-container');
+      const msgEl = document.getElementById('toast-message');
+      msgEl.textContent = message;
+
+      toast.classList.remove('opacity-0', '-translate-y-4');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-4');
+      }, 2400);
+    }
+
+    function toggleSettingsModal(show) {
+      const modal = document.getElementById('settings-modal');
+      if (show) {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        updateStatsUI();
+      } else {
+        modal.classList.remove('opacity-100', 'pointer-events-auto');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+      }
+    }
+
+    function applyThemeColor(hexColor) {
+      const body = document.getElementById('app-body');
+      body.style.backgroundColor = hexColor;
+      document.getElementById('custom-color-input').value = hexColor;
+      document.getElementById('color-hex-display').textContent = hexColor.toUpperCase();
+
+      try {
+        localStorage.setItem('yt_theme_color', hexColor);
+      } catch(e) {}
+    }
+
+    function updateStatsUI() {
+      document.getElementById('stat-likes').textContent = likedCount;
+      document.getElementById('stat-dislikes').textContent = dislikedCount;
+
+      const topTagsContainer = document.getElementById('top-tags-container');
+      topTagsContainer.innerHTML = '';
+
+      const sortedTags = Object.entries(tagWeights)
+        .filter(([_, score]) => score !== 0)
+        .sort((a, b) => b[1] - a[1]);
+
+      if (sortedTags.length === 0) {
+        topTagsContainer.innerHTML = '<span class="text-[11px] text-zinc-500 italic">No preferences registered yet. Like or dislike shorts to tune your feed!</span>';
+        return;
+      }
+
+      sortedTags.slice(0, 8).forEach(([tag, score]) => {
+        const badge = document.createElement('span');
+        const isPositive = score > 0;
+        badge.className = `text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+          isPositive ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300' : 'bg-rose-950/60 border-rose-800/60 text-rose-300'
+        }`;
+        badge.textContent = `#${tag} (${score > 0 ? '+' : ''}${score.toFixed(1)})`;
+        topTagsContainer.appendChild(badge);
+      });
+    }
+
+    function extractYouTubeId(urlInput) {
+      if (!urlInput) return null;
+      const str = urlInput.trim();
+      const shortsMatch = str.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+      if (shortsMatch) return shortsMatch[1];
+      const watchMatch = str.match(/v=([a-zA-Z0-9_-]{11})/);
+      if (watchMatch) return watchMatch[1];
+      const shortUrlMatch = str.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      if (shortUrlMatch) return shortUrlMatch[1];
+      if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+      return null;
+    }
+
+    function handleAddCustomShort() {
+      const urlInput = document.getElementById('custom-short-url').value;
+      const category = document.getElementById('custom-short-category').value;
+      const tagsRaw = document.getElementById('custom-short-tags').value;
+
+      const videoId = extractYouTubeId(urlInput);
+      if (!videoId) {
+        showToast('⚠️ Invalid YouTube Short link or ID');
+        return;
+      }
+
+      const parsedTags = tagsRaw
+        ? tagsRaw.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+        : [category.toLowerCase(), 'custom'];
+
+      const newShort = {
+        id: videoId,
+        title: `Custom Short (${videoId})`,
+        category: category,
+        creator: "@Custom",
+        tags: parsedTags
+      };
+
+      shortsLibrary.unshift(newShort);
+      currentVideoIndex = 0;
+
+      try {
+        const existingCustom = JSON.parse(localStorage.getItem('yt_custom_shorts') || '[]');
+        existingCustom.push(newShort);
+        localStorage.setItem('yt_custom_shorts', JSON.stringify(existingCustom));
+      } catch(e) {}
+
+      document.getElementById('custom-short-url').value = '';
+      document.getElementById('custom-short-tags').value = '';
+
+      showToast('✅ Custom Short added to your feed pool!');
+      toggleSettingsModal(false);
+      loadVideoInPlayer(0);
+    }
+
+    function toggleSearchModal(show) {
+      const modal = document.getElementById('search-modal');
+      const panel = document.getElementById('search-panel');
+      if (!modal) return;
+      if (show) {
+        modal.classList.remove('opacity-0','pointer-events-none');
+        modal.classList.add('opacity-100','pointer-events-auto');
+        panel.classList.remove('-translate-y-3');
+        setTimeout(() => document.getElementById('short-search-input')?.focus(), 40);
+      } else {
+        modal.classList.add('opacity-0','pointer-events-none');
+        modal.classList.remove('opacity-100','pointer-events-auto');
+        panel.classList.add('-translate-y-3');
+      }
+    }
+
+    async function searchShorts() {
+      const input = document.getElementById('short-search-input');
+      const status = document.getElementById('search-results-status');
+      const query = input?.value.trim();
+      if (!query) return;
+      if (!youtubeApiKey) {
+        status.textContent = 'Connect your YouTube API key in Settings first.';
+        status.classList.remove('hidden');
+        return;
+      }
+      status.textContent = 'Searching YouTube…';
+      status.classList.remove('hidden');
+      try {
+        const regionalLanguage = regionalLanguages[0] || 'en';
+        const data = await youtubeFetch('search', {
+          part: 'snippet', type: 'video', q: query, maxResults: 25, order: 'relevance',
+          videoDuration: 'short', videoEmbeddable: 'true', videoSyndicated: 'true',
+          safeSearch: 'moderate', regionCode: regionalCountry || undefined, relevanceLanguage: regionalLanguage
+        });
+        const results = (data.items || []).map(x => ({
+          id: x.id?.videoId, title: x.snippet?.title || 'YouTube Short',
+          category: x.snippet?.channelTitle || 'YouTube', creator: x.snippet?.channelTitle || '@Creator',
+          tags: extractTags(x), description: x.snippet?.description || '', language: x.snippet?.defaultAudioLanguage || x.snippet?.defaultLanguage || ''
+        })).filter(x => x.id);
+        if (!results.length) { status.textContent = 'No embeddable results found.'; return; }
+        shortsLibrary = results;
+        watchedHistory = [];
+        consumedVideoIds.clear();
+        currentVideoIndex = 0;
+        status.textContent = `${results.length} results`;
+        toggleSearchModal(false);
+        loadVideoInPlayer(0);
+        showToast(`🔎 Showing results for “${query}”`);
+        setTimeout(() => { if (status) status.classList.add('hidden'); }, 1000);
+      } catch (e) {
+        console.error(e);
+        status.textContent = e.message || 'Search failed.';
+      }
+    }
+
+    function initEventListeners() {
+      // Button Handlers
+      document.getElementById('btn-like').addEventListener('click', handleLike);
+      document.getElementById('btn-dislike').addEventListener('click', handleDislike);
+      document.getElementById('btn-settings').addEventListener('click', () => toggleSettingsModal(true));
+      document.getElementById('close-settings-btn').addEventListener('click', () => toggleSettingsModal(false));
+      document.getElementById('fallback-next-btn').addEventListener('click', () => navigateNext('up'));
+
+      // Volume Slider
+      document.getElementById('mute-toggle-btn').addEventListener('click', toggleMute);
+      document.getElementById('volume-slider').addEventListener('input', (e) => handleVolumeChange(e.target.value));
+      document.getElementById('search-toggle-btn').addEventListener('click', () => toggleSearchModal(true));
+      document.getElementById('search-close-btn').addEventListener('click', () => toggleSearchModal(false));
+      document.getElementById('search-modal').addEventListener('click', (e) => { if (e.target.id === 'search-modal') toggleSearchModal(false); });
+      document.getElementById('short-search-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); searchShorts(); }
+        if (e.key === 'Escape') toggleSearchModal(false);
+      });
+
+      document.getElementById('detect-location-btn').addEventListener('click', async () => {
+        detectRegionalLocation();
+        discoveryPageToken = '';
+        discoveryTopicIndex = 0;
+        shortsLibrary = [];
+        watchedHistory = [];
+        consumedVideoIds.clear();
+        showToast('📍 Updating regional feed…');
+        if (youtubeApiKey) await startInfiniteFeed();
+      });
+
+      // Theme Preset Buttons
+      document.querySelectorAll('.theme-preset').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const color = e.currentTarget.getAttribute('data-color');
+          applyThemeColor(color);
+        });
+      });
+
+      // Custom Color Picker
+      document.getElementById('custom-color-input').addEventListener('input', (e) => {
+        applyThemeColor(e.target.value);
+      });
+
+      // Dimming Slider
+      document.getElementById('dim-slider').addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('dim-val').textContent = `${val}%`;
+        document.getElementById('bg-dim-overlay').style.opacity = val / 100;
+      });
+
+      // Infinite feed API key
+      document.getElementById('save-api-key-btn').addEventListener('click', async () => {
+        const key = document.getElementById('youtube-api-key').value.trim();
+        if (!key) { showToast('Paste a YouTube Data API v3 key first'); return; }
+        youtubeApiKey = key;
+        localStorage.setItem('yt_api_key', key);
+        discoveryPageToken = '';
+        discoveryTopicIndex = 0;
+        updateApiStatus();
+        shortsLibrary = [];
+        watchedHistory = [];
+        consumedVideoIds.clear();
+        currentVideoIndex = 0;
+        initialAutoplayPending = true;
+        firstUserGestureSeen = false;
+        hideErrorFallback();
+        showToast('⚡ Connecting to YouTube…');
+        await startInfiniteFeed();
+      });
+
+      document.getElementById('clear-api-key-btn').addEventListener('click', () => {
+        youtubeApiKey = DEFAULT_API_KEY;
+        localStorage.removeItem('yt_api_key');
+        shortsLibrary = [];
+        watchedHistory = [];
+        currentVideoIndex = 0;
+        if (ytPlayer && typeof ytPlayer.stopVideo === 'function') ytPlayer.stopVideo();
+        updateApiStatus();
+        showToast('Custom key removed, using built-in key');
+      });
+
+      // Add Custom Short
+      document.getElementById('add-custom-btn').addEventListener('click', handleAddCustomShort);
+
+      // Reset Preferences
+      document.getElementById('reset-weights-btn').addEventListener('click', () => {
+        tagWeights = {};
+        categoryWeights = {};
+        likedCount = 0;
+        dislikedCount = 0;
+        dislikedSet.clear();
+        Object.keys(tagWeights).filter(k => k.startsWith('__dislike__')).forEach(k => delete tagWeights[k]);
+        Object.keys(categoryWeights).filter(k => k.startsWith('__dislike__')).forEach(k => delete categoryWeights[k]);
+        try { localStorage.removeItem('yt_disliked_video_ids'); } catch (e) {}
+        saveState();
+        updateStatsUI();
+        showToast('🔄 Feed algorithm weights reset!');
+      });
+
+      // First user interaction can restore the user's saved volume after muted autoplay.
+      ['pointerdown', 'touchstart', 'keydown'].forEach(type => {
+        window.addEventListener(type, unlockAutoplayAudio, { passive: true });
+      });
+
+      function renderAutoScrollToggle() {
+        const btn = document.getElementById('auto-scroll-toggle');
+        const knob = document.getElementById('auto-scroll-knob');
+        if (!btn || !knob) return;
+        btn.setAttribute('aria-pressed', String(autoScrollEnabled));
+        btn.className = `w-12 h-7 rounded-full relative transition-colors ${autoScrollEnabled ? 'bg-white' : 'bg-zinc-800'}`;
+        knob.className = `absolute top-1 w-5 h-5 rounded-full transition-all ${autoScrollEnabled ? 'left-6 bg-black' : 'left-1 bg-zinc-400'}`;
+      }
+
+      document.getElementById('auto-scroll-toggle').addEventListener('click', () => {
+        autoScrollEnabled = !autoScrollEnabled;
+        localStorage.setItem('idkvideos_auto_scroll', String(autoScrollEnabled));
+        renderAutoScrollToggle();
+        showToast(autoScrollEnabled ? 'Auto-scroll enabled' : 'Auto-scroll disabled');
+      });
+      renderAutoScrollToggle();
+
+      const legalDetailModal = document.getElementById('legal-detail-modal');
+      const termsText = `<p>idkvideos is an independent third-party application and is not affiliated with, endorsed by, or sponsored by YouTube or Google.</p><p>By using idkvideos with YouTube API Services, you agree to be bound by the <a class="text-white underline" href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>, in addition to these idkvideos Terms.</p><p>idkvideos provides a personalized discovery interface around YouTube's official embedded player. We do not host, download, rehost, or redistribute YouTube audiovisual content. YouTube remains the source of displayed video content.</p><p>You must use idkvideos lawfully and must not use it to circumvent YouTube restrictions, automate YouTube actions, interfere with the YouTube player, or remove YouTube attribution.</p>`;
+      const privacyText = `<p>idkvideos stores feed preferences, likes/dislikes, completed-Short count, level progress, theme settings, regional discovery settings, and your API key in this browser's local storage.</p><p>Your API key is used by your browser for YouTube Data API requests. Do not share it publicly. idkvideos does not request or store your YouTube account password or YouTube login credentials.</p><p>The embedded YouTube player may send information to YouTube as described by YouTube's own policies. See Google's <a class="text-white underline" href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p><p>You can remove locally stored idkvideos information by clearing this site's storage or using the available reset/disconnect controls.</p>`;
+      function openLegalDetail(type) {
+        document.getElementById('legal-detail-title').textContent = type === 'terms' ? 'Terms of Use' : 'Privacy Policy';
+        document.getElementById('legal-detail-body').innerHTML = type === 'terms' ? termsText : privacyText;
+        legalDetailModal.classList.remove('opacity-0','pointer-events-none');
+      }
+      document.getElementById('open-terms-btn').addEventListener('click', () => openLegalDetail('terms'));
+      document.getElementById('open-privacy-btn').addEventListener('click', () => openLegalDetail('privacy'));
+      document.getElementById('view-legal-btn').addEventListener('click', () => openLegalDetail('terms'));
+      document.getElementById('close-legal-detail').addEventListener('click', () => legalDetailModal.classList.add('opacity-0','pointer-events-none'));
+      document.getElementById('accept-legal-btn').addEventListener('click', () => {
+        legalAccepted = true;
+        localStorage.setItem('idkvideos_legal_accepted', 'true');
+        document.getElementById('legal-consent-modal').classList.add('hidden');
+        if (youtubeApiKey) startInfiniteFeed();
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+        switch (e.key) {
+          case 'ArrowDown':
+          case 'j':
+          case 'J':
+            navigateNext('up');
+            break;
+          case 'ArrowUp':
+          case 'k':
+          case 'K':
+            navigatePrev();
+            break;
+          case ' ':
+          case 'l':
+          case 'L':
+            e.preventDefault();
+            handleLike();
+            break;
+          case 'd':
+          case 'D':
+            handleDislike();
+            break;
+          case 's':
+          case 'S':
+            const modal = document.getElementById('settings-modal');
+            const isOpen = modal.classList.contains('opacity-100');
+            toggleSettingsModal(!isOpen);
+            break;
+          case 'm':
+          case 'M':
+            toggleMute();
+            break;
+        }
+      });
+
+      // ---- Scroll navigation: mouse wheel / trackpad, touch swipe, tap to pause ----
+      (function setupGestureNav() {
+        const layer = document.getElementById('gesture-layer');
+        const inModal = t => !!(t && t.closest && t.closest('[id$="-modal"]'));
+        const isField = t => !!(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
+        // Wheel / trackpad (one step per gesture, ignores trackpad inertia)
+        let lockUntil = 0, hardEnd = 0, acc = 0, accTimer;
+        window.addEventListener('wheel', (e) => {
+          if (e.ctrlKey || inModal(e.target) || isField(e.target)) return;
+          e.preventDefault();
+          const now = performance.now();
+          if (now < lockUntil) {
+            if (now < hardEnd) lockUntil = Math.max(lockUntil, now + 120);
+            return;
+          }
+          acc += e.deltaY;
+          clearTimeout(accTimer);
+          accTimer = setTimeout(() => { acc = 0; }, 150);
+          if (Math.abs(acc) < 30) return;
+          const goNext = acc > 0;
+          acc = 0;
+          lockUntil = now + 550;
+          hardEnd = now + 1500;
+          goNext ? navigateNext('up') : navigatePrev();
+        }, { passive: false });
+
+        // Touch swipe (works over the video and around it)
+        let sx = 0, sy = 0, st = 0, tracking = false, swipedAt = 0;
+        document.addEventListener('touchstart', (e) => {
+          if (e.touches.length !== 1 || inModal(e.target) || isField(e.target)) { tracking = false; return; }
+          tracking = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+          if (!tracking) return;
+          tracking = false;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - sx, dy = t.clientY - sy;
+          if (Math.abs(dy) > 45 && Math.abs(dy) > Math.abs(dx) * 1.2 && Date.now() - st < 900) {
+            swipedAt = Date.now();
+            dy < 0 ? navigateNext('up') : navigatePrev();
+          }
+        }, { passive: true });
+
+        // Tap / click on the video = play / pause
+        layer.addEventListener('click', () => {
+          if (Date.now() - swipedAt < 400) return;
+          if (!isPlayerReady || !ytPlayer) return;
+          try {
+            ytPlayer.getPlayerState() === YT.PlayerState.PLAYING ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+          } catch (err) {}
+        });
+      })();
+    }
+
+    window.onload = function() {
+      loadState();
+      detectRegionalLocation();
+      initEventListeners();
+      if (legalAccepted) document.getElementById('legal-consent-modal').classList.add('hidden');
+      updateApiStatus();
+      if (youtubeApiKey && legalAccepted) {
+        startInfiniteFeed();
+      } else {
+        updateTopTitleUI();
+        showErrorFallback();
+        document.querySelector('#error-fallback-card h3').textContent = 'Connect your YouTube feed';
+        document.querySelector('#error-fallback-card p').textContent = 'Open Settings and add a YouTube Data API v3 key to start infinite Shorts discovery.';
+      }
+    };
+  </script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js', { scope: './' }).catch(err => console.warn('PWA worker registration failed', err)));
+}
+</script>
+</body>
+</html>
